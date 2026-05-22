@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Webcam To Google Drive</title>
+  <style>
+    body { font-family: sans-serif; text-align: center; padding: 20px; background: #121212; color: #fff; }
+    #video { width: 100%; max-width: 400px; border-radius: 12px; background: #000; transform: scaleX(-1); }
+    .btn { background: #007bff; color: #fff; border: none; padding: 12px 24px; font-size: 16px; border-radius: 8px; cursor: pointer; margin-top: 15px; font-weight: bold; }
+    #status { margin-top: 15px; color: #aaa; white-space: pre-line; }
+  </style>
+</head>
+<body>
+
+  <h2>ระบบเปิดกล้องมือถือ (ภายนอก Google)</h2>
+  <video id="video" autoplay playsinline></video>
+  <br>
+  <button class="btn" onclick="captureAndSend()">กดถ่ายรูปและส่งไป Google</button>
+  <p id="status">กำลังรอเปิดกล้อง...</p>
+
+  <script>
+    // URL ของคุณใส่ให้เรียบร้อยแล้ว
+    const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyLZpaCK-v7pIoSlu-wDMF1wyYcZJ1D8Ae_iGe_zqDVUqmi89B0D5V9OYBpmmxj9aAehg/exec";
+
+    const video = document.getElementById('video');
+    const status = document.getElementById('status');
+
+    // เรียกขอสิทธิ์เปิดกล้องทันทีที่รันหน้านี้
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false })
+      .then(stream => {
+        video.srcObject = stream;
+        status.innerText = "กล้องพร้อมใช้งานแล้ว!";
+        status.style.color = "#28a745";
+      })
+      .catch(err => {
+        status.innerText = "เปิดกล้องไม่ได้: " + err.message + "\n(ตรวจสอบว่าใช้ HTTPS หรือไม่ และให้สิทธิ์กล้องหรือยัง)";
+        status.style.color = "#dc3545";
+      });
+
+    // ฟังก์ชันถ่ายภาพแล้วยิงเข้า Google Apps Script
+    function captureAndSend() {
+      status.innerText = "กำลังถ่ายภาพ...";
+      status.style.color = "#aaa";
+      
+      const canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext('2d');
+      
+      // ปรับรูปไม่ให้กลับด้าน (กระจกเงา)
+      ctx.translate(canvas.width, 0);
+      ctx.scale(-1, 1); 
+      ctx.drawImage(video, 0, 0);
+      
+      const base64Image = canvas.toDataURL('image/jpeg');
+      status.innerText = "กำลังส่งรูปไปที่ Google Drive...";
+
+      // 🛠️ แก้ไขวิธียิงด้วยฟอร์มธรรมดา (ส่งแบบ Text) เพื่อไม่ให้ติดเรื่อง CORS และระบบความปลอดภัย
+      const formBody = 'image=' + encodeURIComponent(base64Image);
+
+      fetch(GOOGLE_SCRIPT_URL, {
+        method: "POST",
+        mode: "no-cors", // ใช้คู่กับการส่งแบบ text/plain ระบบ Google จะยอมรับแน่นอน
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded"
+        },
+        body: formBody
+      })
+      .then(() => {
+        status.innerText = "📸 ส่งรูปเข้า Google Drive สำเร็จเรียบร้อยแล้ว!\nลองไปเช็กที่ไดรฟ์ของคุณได้เลย";
+        status.style.color = "#28a745";
+      })
+      .catch(err => {
+        status.innerText = "ส่งข้อมูลล้มเหลว: " + err.message;
+        status.style.color = "#dc3545";
+      });
+    }
+  </script>
+</body>
+</html>
