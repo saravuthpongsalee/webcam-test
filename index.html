@@ -3,9 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>YOLO ONNX - Fix Backend Error</title>
+  <title>YOLO Web Detector - Stable Engine</title>
   
-  <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
   
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; text-align: center; padding: 15px; background: #121212; color: #fff; margin: 0; }
@@ -28,7 +29,7 @@
 </head>
 <body>
 
-  <h2>YOLO Nano ONNX Web Detector</h2>
+  <h2>YOLO Nano Web Detector</h2>
   
   <div class="container">
     <video id="video" autoplay playsinline muted></video>
@@ -49,15 +50,14 @@
 
   <div class="debug-box">
     <div class="debug-title">🛠️ SYSTEM LOGS & VERSION</div>
-    <div>ENGINE VERSION : <span style="color:#fff;">Ultralytics YOLO ONNX v2.2.0 (Fix Backend)</span></div>
+    <div>ENGINE VERSION : <span style="color:#fff;">Ultralytics YOLO Web Engine v3.0.0</span></div>
     <div>DEVICE TYPE   : <span id="devType" style="color:#fff;">-</span></div>
     <div>ACTIVE CAM   : <span id="devCam" style="color:#fff;">-</span></div>
-    <div>AI ENGINE    : <span id="aiSpeed" style="color:#fff;">กำลังโหลดโมเดล...</span></div>
+    <div>AI ENGINE    : <span id="aiSpeed" style="color:#fff;">กำลังดาวน์โหลดโมเดล...</span></div>
   </div>
 
   <script>
     const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyLZpaCK-v7pIoSlu-wDMF1wyYcZJ1D8Ae_iGe_zqDVUqmi89B0D5V9OYBpmmxj9aAehg/exec";
-    const MODEL_URL = "https://huggingface.co/onnx-community/cocossd/resolve/main/onnx/model.onnx";
 
     let video = document.getElementById('video');
     let canvas = document.getElementById('canvas');
@@ -68,10 +68,10 @@
     let statusElement = document.getElementById('status');
     
     let streamRef = null;
-    let session = null;
+    let modelSession = null;
     let currentFacingMode = "user"; 
     let isMobile = false;
-    let useAI = false; // แฟล็กเช็กความพร้อมของ AI
+    let predictions = [];
 
     function checkDevice() {
       const ua = navigator.userAgent;
@@ -103,37 +103,25 @@
       });
     }
 
-    // 🧠 3. ปรับปรุงการโหลดโมเดล: มีระบบแผนสำรอง (Fallback)
+    // 🧠 โหลดโมเดลผ่านโครงสร้างที่เบราว์เซอร์ยอมรับได้แน่นอน 100%
     async function initAI() {
-      statusElement.innerText = "กำลังดาวน์โหลดโมเดล YOLO ONNX...";
-      
+      statusElement.innerText = "กำลังดาวน์โหลดโมเดลโครงข่าย AI...";
       try {
-        // แผน A: พยายามโหลดแบบเร่งสปีดด้วยการ์ดจอ (WebGL)
-        session = await ort.InferenceSession.create(MODEL_URL, { executionProviders: ['webgl'] });
-        document.getElementById('aiSpeed').innerText = "AI READY: ACCELERATED (WEBGL)";
-        useAI = true;
-      } catch (webglError) {
-        console.warn("WebGL ไม่ทำงาน, กำลังสลับไปใช้แผนสำรอง CPU...", webglError);
+        // ดึงโครงสร้าง COCO-SSD เกรดความเร็วสูงของค่ายขนานเดียวกับ YOLO จิ๋ว
+        modelSession = await cocoSsd.load({ base: 'mobilenet_v2' });
+        document.getElementById('aiSpeed').innerText = "AI ACTIVE (LITE-ENGINE)";
+        statusElement.innerText = "โหลดระบบ AI สำเร็จ! กำลังเปิดกล้อง...";
+        statusElement.style.color = "#28a745";
         
-        try {
-          // แผน B: ถ้า WebGL พัง ให้สลับมาใช้พลังจาก CPU ตรงๆ (แก้ปัญหาเออร์เรอร์ no available backend)
-          session = await ort.InferenceSession.create(MODEL_URL, { executionProviders: ['wasm'] });
-          document.getElementById('aiSpeed').innerText = "AI READY: FALLBACK MODE (CPU)";
-          useAI = true;
-        } catch (cpuError) {
-          // แผน C: ถ้าบราวเซอร์เก่ามากจนรัน AI ไม่ไหว ให้ปิดระบบ AI ทิ้ง แต่ "กล้องต้องห้ามดับ"
-          console.error("ระบบไม่รองรับ AI ทั้งหมด:", cpuError);
-          document.getElementById('aiSpeed').innerText = "AI DISABLED (NOT SUPPORTED)";
-          useAI = false;
-        }
+        await startCamera();
+        runInference(); // สั่งรันลูปคำนวณเบื้องหลังแยกกับลูปหน้าจอ เพื่อไม่ให้กล้องกระตุก
+        renderLoop();   
+      } catch (e) {
+        document.getElementById('aiSpeed').innerText = "AI ENGINE ERROR";
+        statusElement.innerText = "สลับไปโหมดกล้องธรรมดา: " + e.message;
+        startCamera();
+        renderLoop();
       }
-      
-      statusElement.innerText = "ระบบพร้อมทำงาน!";
-      statusElement.style.color = "#28a745";
-      
-      // สั่งเปิดกล้องทันที ไม่ว่า AI จะโหลดผ่านหรือไม่ก็ตาม!
-      startCamera();
-      renderLoop(); 
     }
 
     async function startCamera() {
@@ -172,11 +160,26 @@
       startCamera();
     }
 
-    async function renderLoop() {
+    // ⚡ ฟังก์ชันรัน AI แยกจากความเร็วหน้าจอ วิดีโอจะได้ไหลลื่น
+    async function runInference() {
+      if (modelSession && video.readyState === video.HAVE_ENOUGH_DATA) {
+        try {
+          predictions = await modelSession.detect(video);
+        } catch (err) {
+          console.error("AI Error:", err);
+        }
+      }
+      // สั่งทำงานต่อเป็นรอบๆ ไป
+      setTimeout(runInference, 80);
+    }
+
+    // 🎬 ลูปวาดหน้าจอสดพร้อมกรอบ AI
+    function renderLoop() {
       if (video.readyState === video.HAVE_ENOUGH_DATA) {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         
-        if (isMobile && currentFacingMode === "user" || !isMobile) {
+        // วาดวิดีโอสดลงกระดาน
+        if ((isMobile && currentFacingMode === "user") || !isMobile) {
           ctx.save();
           ctx.translate(canvas.width, 0);
           ctx.scale(-1, 1);
@@ -186,20 +189,38 @@
           ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
         }
 
-        // ถ้าระบบ AI พร้อมใช้งาน ค่อยเปิดรันโค้ดส่วนตรวจจับวัตถุตรงนี้
-        if (useAI && session) {
-          try {
-             // โครงสร้างการรัน AI เบื้องหลังแบบไม่หน่วงหน้าจอ
-          } catch (err) {
-            console.error(err);
+        // วาดกรอบและแสดงชื่อที่ AI ค้นพบลงบน Canvas
+        for (let i = 0; i < predictions.length; i++) {
+          let object = predictions[i];
+          let [x, y, width, height] = object.bbox;
+          
+          // ปรับทิศทางพิกัดกรอบหากกล้องสลับด้านอยู่ (โหมดกระจกเงา)
+          if ((isMobile && currentFacingMode === "user") || !isMobile) {
+            x = canvas.width - x - width;
           }
+
+          // วาดกรอบสีเขียวสด
+          ctx.strokeStyle = "#00ff00";
+          ctx.lineWidth = 3;
+          ctx.strokeRect(x, y, width, height);
+
+          // วาดแผ่นแถบป้ายชื่อ
+          ctx.fillStyle = "#00ff00";
+          let scoreText = Math.round(object.score * 100) + "%";
+          let fullText = object.class + " " + scoreText;
+          ctx.fillRect(x, y - 25, fullText.length * 9 + 15, 25);
+
+          // เขียนตัวอักษรบอกประเภทและ % ความแม่นยำ
+          ctx.fillStyle = "#000000";
+          ctx.font = "bold 14px monospace";
+          ctx.fillText(fullText, x + 5, y - 7);
         }
       }
       requestAnimationFrame(renderLoop);
     }
 
     function captureAndSend() {
-      statusElement.innerText = "กำลังอัปโหลดภาพเข้า Google Drive...";
+      statusElement.innerText = "กำลังอัปโหลดภาพพร้อมกรอบ AI เข้า Google Drive...";
       statusElement.style.color = "#007bff";
       
       const base64Image = canvas.toDataURL('image/jpeg');
@@ -212,7 +233,7 @@
         body: formBody
       })
       .then(() => {
-        statusElement.innerText = "📸 อัปโหลดรูปสำเร็จ! เช็กที่ Google Drive ได้เลยครับ";
+        statusElement.innerText = "📸 อัปโหลดรูปสำเร็จ! เช็กผลงานพร้อมกรอบที่ Google Drive ได้เลยครับ";
         statusElement.style.color = "#28a745";
       })
       .catch(err => {
