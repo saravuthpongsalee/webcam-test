@@ -3,77 +3,186 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Webcam To Google Drive</title>
+  <title>AI Webcam To Google Drive</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
+  <script src="https://unpkg.com/ml5@1.2.0/dist/ml5.min.js"></script>
+  
   <style>
-    body { font-family: sans-serif; text-align: center; padding: 20px; background: #121212; color: #fff; }
-    #video { width: 100%; max-width: 400px; border-radius: 12px; background: #000; transform: scaleX(-1); }
-    .btn { background: #007bff; color: #fff; border: none; padding: 12px 24px; font-size: 16px; border-radius: 8px; cursor: pointer; margin-top: 15px; font-weight: bold; }
-    #status { margin-top: 15px; color: #aaa; white-space: pre-line; }
+    body { font-family: sans-serif; text-align: center; padding: 10px; background: #121212; color: #fff; margin: 0; }
+    .container { position: relative; width: 100%; max-width: 450px; margin: 0 auto; }
+    /* ซ่อนกล้องดิบ เอาไว้ให้ AI ดึงภาพ */
+    #video { display: none; }
+    /* ใช้ canvas ของ p5.js ในการแสดงผลแทน เพื่อวาดกรอบ AI */
+    canvas { width: 100% !important; height: auto !important; border-radius: 12px; box-shadow: 0 8px 20px rgba(0,0,0,0.5); }
+    .btn-group { margin-top: 15px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+    .btn { background: #007bff; color: #fff; border: none; padding: 12px 20px; font-size: 15px; border-radius: 8px; cursor: pointer; font-weight: bold; }
+    .btn-success { background: #28a745; }
+    .btn-secondary { background: #6c757d; }
+    #status { margin-top: 15px; color: #aaa; white-space: pre-line; font-size: 14px; }
   </style>
 </head>
 <body>
 
-  <h2>ระบบเปิดกล้องมือถือ (ภายนอก Google)</h2>
-  <video id="video" autoplay playsinline></video>
-  <br>
-  <button class="btn" onclick="captureAndSend()">กดถ่ายรูปและส่งไป Google</button>
-  <p id="status">กำลังรอเปิดกล้อง...</p>
+  <h2>AI Object Detection & Webcam</h2>
+  
+  <div class="container">
+    <video id="video" autoplay playsinline></video>
+    <div id="canvas-container"></div>
+  </div>
+  
+  <div class="btn-group">
+    <button class="btn btn-secondary" onclick="switchCamera()">🔄 สลับกล้อง หน้า/หลัง</button>
+    <button class="btn btn-success" onclick="captureAndSend()">📸 ถ่ายรูปพร้อมกรอบ AI ส่งไป Google</button>
+  </div>
+  
+  <p id="status">กำลังโหลดโมเดล AI (Object Detection)...</p>
 
   <script>
-    // URL ของคุณใส่ให้เรียบร้อยแล้ว
     const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyLZpaCK-v7pIoSlu-wDMF1wyYcZJ1D8Ae_iGe_zqDVUqmi89B0D5V9OYBpmmxj9aAehg/exec";
 
-    const video = document.getElementById('video');
-    const status = document.getElementById('status');
+    let video;
+    let objectDetector;
+    let detections = [];
+    let currentFacingMode = "environment"; // เริ่มต้นที่กล้องหลัง เพื่อให้ส่องวัตถุสะดวก
+    let isModelLoaded = false;
+    let streamRef = null;
 
-    // เรียกขอสิทธิ์เปิดกล้องทันทีที่รันหน้านี้
-    navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false })
-      .then(stream => {
-        video.srcObject = stream;
-        status.innerText = "กล้องพร้อมใช้งานแล้ว!";
-        status.style.color = "#28a745";
-      })
-      .catch(err => {
-        status.innerText = "เปิดกล้องไม่ได้: " + err.message + "\n(ตรวจสอบว่าใช้ HTTPS หรือไม่ และให้สิทธิ์กล้องหรือยัง)";
-        status.style.color = "#dc3545";
-      });
+    // 1. ฟังก์ชันเริ่มต้นของ p5.js
+    function setup() {
+      // สร้างจอแสดงผลไว้ใน container
+      const canvas = createCanvas(640, 480);
+      canvas.parent('canvas-container');
+      
+      video = document.getElementById('video');
+      
+      // โหลดโมเดล COCO-SSD (โมเดลตรวจจับวัตถุความเร็วสูงอิงสถาปัตยกรรมเดียวกับ YOLO)
+      status.innerText = "กำลังโหลดโมเดล AI... กรุณารอสักครู่";
+      objectDetector = ml5.objectDetector('cocossd', modelLoaded);
+    }
 
-    // ฟังก์ชันถ่ายภาพแล้วยิงเข้า Google Apps Script
+    function modelLoaded() {
+      isModelLoaded = true;
+      document.getElementById('status').innerText = "โมเดล AI พร้อมใช้งานแล้ว! กำลังเปิดกล้อง...";
+      startCamera();
+    }
+
+    // 2. ฟังก์ชันสั่งเปิดกล้องตาม facingMode ที่เลือก
+    function startCamera() {
+      if (!isModelLoaded) return;
+      
+      // ปิดกล้องตัวเก่าก่อนสลับ
+      if (streamRef) {
+        streamRef.getTracks().forEach(track => track.stop());
+      }
+
+      const constraints = {
+        video: { facingMode: currentFacingMode, width: 640, height: 480 },
+        audio: false
+      };
+
+      navigator.mediaDevices.getUserMedia(constraints)
+        .then(stream => {
+          streamRef = stream;
+          video.srcObject = stream;
+          video.play();
+          document.getElementById('status').innerText = "ระบบพร้อมทำงาน! กำลังตรวจจับวัตถุ...";
+          // สั่งให้ AI เริ่มตรวจจับภาพจากกล้อง
+          objectDetector.detect(video, gotResult);
+        })
+        .catch(err => {
+          document.getElementById('status').innerText = "เปิดกล้องล้มเหลว: " + err.message;
+        });
+    }
+
+    // 3. ฟังก์ชันสลับกล้อง หน้า <-> หลัง
+    function switchCamera() {
+      currentFacingMode = (currentFacingMode === "user") ? "environment" : "user";
+      document.getElementById('status').innerText = "กำลังสลับกล้อง...";
+      startCamera();
+    }
+
+    // 4. เมื่อ AI ตรวจจับและจำแนกวัตถุได้
+    function gotResult(err, results) {
+      if (err) {
+        console.error(err);
+        return;
+      }
+      detections = results; // เก็บรายชื่อและพิกัดวัตถุที่เจอ
+      
+      // วนลูปตรวจจับต่อเรื่อยๆ แบบ Real-time
+      objectDetector.detect(video, gotResult);
+    }
+
+    // 5. ฟังก์ชันวาดภาพของ p5.js (รันตลอดเวลาเพื่อ Update หน้าจอ)
+    function draw() {
+      if (!video || !video.videoWidth) return;
+      
+      // วาดภาพจากกล้องลงบน Canvas
+      // ถ้าเป็นกล้องหน้า ให้กลับด้านซ้ายขวาให้เหมือนกระจกเงา
+      if (currentFacingMode === "user") {
+        translate(width, 0);
+        scale(-1, 1);
+        image(video, 0, 0, width, height);
+        translate(width, 0);
+        scale(-1, 1); // รีเซ็ตสถานะกลับมาวาดตัวหนังสือปกติ
+      } else {
+        image(video, 0, 0, width, height);
+      }
+
+      // วาดกรอบสี่เหลี่ยมและชื่อวัตถุที่ AI ตรวจเจอ
+      for (let i = 0; i < detections.length; i++) {
+        let object = detections[i];
+        
+        // คำนวณพิกัดกรณีใช้กล้องหน้า (กระจกเงา)
+        let x = object.x;
+        if (currentFacingMode === "user") {
+          x = width - object.x - object.width;
+        }
+
+        // วาดกรอบสีเขียวสะท้อนแสง
+        stroke(0, 255, 0);
+        strokeWeight(3);
+        noFill();
+        rect(x, object.y, object.width, object.height, 8);
+
+        // วาดแถบป้ายชื่อ
+        noStroke();
+        fill(0, 255, 0);
+        rect(x, object.y - 25, object.label.length * 10 + 40, 25, 4);
+
+        // เขียนตัวหนังสือบอกประเภทวัตถุและความแม่นยำ %
+        fill(0, 0, 0);
+        strokeWeight(1);
+        textSize(14);
+        let confidence = nf(object.confidence * 100, 2, 0);
+        text(`${object.label} (${confidence}%)`, x + 5, object.y - 7);
+      }
+    }
+
+    // 6. ถ่ายภาพหน้าจอ Canvas (รวมกรอบ AI) ส่งไป Google Drive
     function captureAndSend() {
-      status.innerText = "กำลังถ่ายภาพ...";
-      status.style.color = "#aaa";
+      const statusElement = document.getElementById('status');
+      statusElement.innerText = "กำลังเซฟภาพพร้อมกรอบ AI และส่งไปที่ Google Drive...";
       
-      const canvas = document.createElement('canvas');
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      const ctx = canvas.getContext('2d');
-      
-      // ปรับรูปไม่ให้กลับด้าน (กระจกเงา)
-      ctx.translate(canvas.width, 0);
-      ctx.scale(-1, 1); 
-      ctx.drawImage(video, 0, 0);
-      
-      const base64Image = canvas.toDataURL('image/jpeg');
-      status.innerText = "กำลังส่งรูปไปที่ Google Drive...";
+      // ดึงภาพจาก Canvas ของ p5.js ออกมาเป็น Base64 โดยตรง
+      const canvasElement = document.querySelector('canvas');
+      const base64Image = canvasElement.toDataURL('image/jpeg');
 
-      // 🛠️ แก้ไขวิธียิงด้วยฟอร์มธรรมดา (ส่งแบบ Text) เพื่อไม่ให้ติดเรื่อง CORS และระบบความปลอดภัย
       const formBody = 'image=' + encodeURIComponent(base64Image);
 
       fetch(GOOGLE_SCRIPT_URL, {
         method: "POST",
-        mode: "no-cors", // ใช้คู่กับการส่งแบบ text/plain ระบบ Google จะยอมรับแน่นอน
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded"
-        },
+        mode: "no-cors",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: formBody
       })
       .then(() => {
-        status.innerText = "📸 ส่งรูปเข้า Google Drive สำเร็จเรียบร้อยแล้ว!\nลองไปเช็กที่ไดรฟ์ของคุณได้เลย";
-        status.style.color = "#28a745";
+        statusElement.innerText = "📸 สำเร็จ! บันทึกภาพที่ตรวจจับวัตถุลง Google Drive เรียบร้อยแล้ว";
+        statusElement.style.color = "#28a745";
       })
       .catch(err => {
-        status.innerText = "ส่งข้อมูลล้มเหลว: " + err.message;
-        status.style.color = "#dc3545";
+        statusElement.innerText = "ส่งข้อมูลล้มเหลว: " + err.message;
+        statusElement.style.color = "#dc3545";
       });
     }
   </script>
