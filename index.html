@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>AI Human Security Tracker - Tracking Tail v5.0</title>
+  <title>AI Car Counter - ID Tracking v4.0</title>
   
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
@@ -14,10 +14,11 @@
     video { display: none; } 
     canvas { width: 100% !important; height: auto !important; border-radius: 12px; box-shadow: 0 8px 30px rgba(0,0,0,0.7); background-color: #000; }
     
-    .counter-dashboard { display: flex; justify-content: space-around; max-width: 470px; margin: 10px auto; background: #1a1a1a; padding: 15px; border-radius: 12px; border: 1px solid #333; }
+    /* กล่องแสดงตัวเลขยอดรวมการนับรถ */
+    .counter-dashboard { display: flex; justify-content: space-around; max-width: 470px; margin: 10px auto; background: #222; padding: 15px; border-radius: 12px; border: 1px solid #333; }
     .counter-item { text-align: center; }
-    .counter-item h3 { margin: 0 0 5px 0; font-size: 13px; color: #aaa; }
-    .counter-item p { margin: 0; font-size: 32px; font-weight: bold; color: #00e5ff; font-family: monospace; }
+    .counter-item h3 { margin: 0 0 5px 0; font-size: 14px; color: #aaa; }
+    .counter-item p { margin: 0; font-size: 32px; font-weight: bold; color: #00ff00; font-family: monospace; }
     
     .control-panel { background: #1e1e1e; padding: 15px; border-radius: 12px; border: 1px solid #333; max-width: 470px; margin: 0 auto; }
     .btn-group { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-bottom: 12px; }
@@ -28,13 +29,13 @@
     #cameraSelectContainer { margin-top: 10px; display: none; }
     select { background: #333; color: #fff; border: 1px solid #555; padding: 10px; border-radius: 6px; font-size: 14px; width: 100%; max-width: 300px; }
     
-    .debug-box { max-width: 430px; margin: 15px auto 0 auto; background: #131313; border: 1px solid #333; border-radius: 8px; padding: 12px; text-align: left; font-size: 12px; font-family: monospace; color: #00e5ff; line-height: 1.6; }
+    .debug-box { max-width: 430px; margin: 15px auto 0 auto; background: #131313; border: 1px solid #333; border-radius: 8px; padding: 12px; text-align: left; font-size: 12px; font-family: monospace; color: #00ff00; line-height: 1.6; }
     #status { margin-top: 10px; font-size: 14px; color: #999; }
   </style>
 </head>
 <body>
 
-  <h2>AI Airport Security - Human Counter</h2>
+  <h2>AI Vehicle Counter Pro</h2>
   
   <div class="container">
     <video id="video" autoplay playsinline muted></video>
@@ -43,11 +44,11 @@
 
   <div class="counter-dashboard">
     <div class="counter-item">
-      <h3>🚶‍♂️ ยอดนับคนข้ามเขตทั้งหมด (TOTAL)</h3>
-      <p id="humanCountDisplay">0</p>
+      <h3>🚗 จำนวนรถที่นับได้ (TOTAL)</h3>
+      <p id="carCountDisplay">0</p>
     </div>
     <div class="counter-item">
-      <h3>🆔 จำนวนคนที่อยู่ในจอขณะนี้</h3>
+      <h3>🆔 กำลังติดตามในจอ</h3>
       <p id="trackedObjectsDisplay" style="color: #ffcc00;">0</p>
     </div>
   </div>
@@ -55,8 +56,8 @@
   <div class="control-panel">
     <div class="btn-group">
       <button id="switchBtn" class="btn" style="background:#6c757d;" onclick="switchCameraMobile()">🔄 สลับกล้อง หน้า/หลัง</button>
-      <button class="btn btn-success" onclick="captureAndSend()">📸 ส่งภาพหลักฐานเข้า Google</button>
-      <button class="btn btn-danger" onclick="resetCounter()">🧹 รีเซ็ตระบบนับ</button>
+      <button class="btn btn-success" onclick="captureAndSend()">📸 ส่งภาพหลักฐานไป Google</button>
+      <button class="btn btn-danger" onclick="resetCounter()">🧹 รีเซ็ตตัวนับ</button>
     </div>
     
     <div id="cameraSelectContainer">
@@ -64,14 +65,14 @@
     </div>
   </div>
   
-  <p id="status">กำลังเตรียมสมองกล AI...</p>
+  <p id="status">กำลังเตรียม AI เอนจิ้น...</p>
 
   <div class="debug-box">
-    <div style="text-align:center; font-weight:bold; color:#ffcc00; margin-bottom:5px;">🛡️ AIRPORT SECURITY DIAGNOSTICS</div>
-    <div>DEVICE MODE     : <span id="devType" style="color:#fff;">-</span></div>
-    <div>ACTIVE CAMERA  : <span id="devCam" style="color:#fff;">-</span></div>
-    <div>SECURITY CLASS : <span style="color:#fff;">person (คนเดิน / คนวิ่ง)</span></div>
-    <div>MOTION TAIL    : <span style="color:#fff;">Active (Max 15 History Points)</span></div>
+    <div style="text-align:center; font-weight:bold; color:#ffcc00; margin-bottom:5px;">🛠️ TRACKING DIAGNOSTICS</div>
+    <div>DEVICE MODE   : <span id="devType" style="color:#fff;">-</span></div>
+    <div>ACTIVE CAMERA : <span id="devCam" style="color:#fff;">-</span></div>
+    <div>TARGET CLASS  : <span style="color:#fff;">car, motorcycle, truck, bus</span></div>
+    <div>COUNTED IDs   : <span id="countedIdsList" style="color:#fff;">[]</span></div>
   </div>
 
   <script>
@@ -87,28 +88,30 @@
     
     let streamRef = null;
     let modelSession = null;
-    let currentFacingMode = "user"; 
+    let currentFacingMode = "environment"; // นับรถแนะนำให้เริ่มรันที่กล้องหลัง เพื่อสะดวกในการส่อง
     let isMobile = false;
     
-    // --- โครงสร้างระบบสแกนคนข้ามเขต และวาดเส้นหาง (Tracking Tail) ---
-    let totalHumanCount = 0;
+    // --- โครงสร้างระบบ Tracking & ID (แก้ปัญหานับซ้ำ) ---
+    let totalCarCount = 0;
     let nextObjectID = 1;
-    let trackedObjects = []; 
-    let countedIDs = new Set(); 
+    let trackedObjects = []; // เก็บประวัติวัตถุในจอ [{id, lastX, lastY, box, label, crossed}]
+    let countedIDs = new Set(); // บันทึก ID ที่ผ่านเส้นไปแล้ว เพื่อห้ามนับซ้ำ
     
-    const COUNTING_LINE_Y = 240; // เส้นแบ่งเขตความปลอดภัยกลางจอ
-    const TAIL_MAX_LENGTH = 15; // ความยาวของเส้นหาง (เก็บประวัติพิกัดย้อนหลัง 15 เฟรม)
+    // ตำแหน่งเส้นตรวจจับสีแดง (ลากแนวนอนตรงกลางจอความสูง 480px -> เส้นอยู่ที่ 240px)
+    const COUNTING_LINE_Y = 240; 
+    // ประเภทวัตถุที่ระบบยอมรับให้นับ
+    const allowedClasses = ['car', 'motorcycle', 'truck', 'bus'];
 
     function checkDevice() {
       const ua = navigator.userAgent;
       if (/Android|iPhone|iPad|iPod/i.test(ua)) {
         isMobile = true;
-        document.getElementById('devType').innerText = "📱 MOBILE SYSTEM";
+        document.getElementById('devType').innerText = "📱 MOBILE";
         cameraSelectContainer.style.display = "none";
         switchBtn.style.display = "inline-block";
       } else {
         isMobile = false;
-        document.getElementById('devType').innerText = "💻 SECURITY COMPUTER";
+        document.getElementById('devType').innerText = "💻 COMPUTER";
         cameraSelectContainer.style.display = "block";
         switchBtn.style.display = "none";
       }
@@ -130,18 +133,18 @@
     }
 
     async function initAI() {
-      statusElement.innerText = "กำลังดาวน์โหลดระบบความปลอดภัย Human AI...";
+      statusElement.innerText = "กำลังดาวน์โหลดโมเดลนับรถ AI...";
       try {
         await tf.ready();
         modelSession = await cocoSsd.load({ base: 'mobilenet_v2' });
-        statusElement.innerText = "ระบบตรวจจับและนับคนพร้อมทำงาน!";
+        statusElement.innerText = "ระบบนับรถพร้อมทำงาน!";
         statusElement.style.color = "#28a745";
         
         await startCamera();
         runInference(); 
         renderLoop();   
       } catch (e) {
-        statusElement.innerText = "โหลดโมเดลล้มเหลว: " + e.message;
+        statusElement.innerText = "โหลดระบบล้มเหลว: " + e.message;
         startCamera();
         renderLoop();
       }
@@ -157,7 +160,7 @@
       let constraints = { audio: false };
       if (isMobile) {
         constraints.video = { facingMode: currentFacingMode, width: 640, height: 480 };
-        document.getElementById('devCam').innerText = currentFacingMode === "user" ? "FRONT (กล้องหน้า)" : "BACK (กล้องหลัง)";
+        document.getElementById('devCam').innerText = currentFacingMode === "user" ? "FRONT (หน้า)" : "BACK (หลัง)";
       } else {
         const videoSource = videoSelect.value;
         constraints.video = { deviceId: videoSource ? { exact: videoSource } : undefined, width: 640, height: 480 };
@@ -182,71 +185,60 @@
       startCamera();
     }
 
-    // ⚡ 5. เอนจิ้นติดตามโครงสร้างพิกัด พร้อมบันทึกประวัติเส้นหาง (Motion Path Tracking)
+    // ⚡ 5. ระบบคำนวณและแจกจ่าย ID วัตถุแบบเรียลไทม์ (Centroid Tracking)
     async function runInference() {
       if (modelSession && video.readyState === video.HAVE_ENOUGH_DATA) {
         try {
           const rawPredictions = await modelSession.detect(video);
           
-          // 🛑 เจาะจงคัดกรองเอาเฉพาะ "คน" (person) เท่านั้นตามเงื่อนไขความปลอดภัย
-          let currentHumans = rawPredictions.filter(p => p.class === 'person' && p.score > 0.40);
+          // กรองเอาเฉพาะวัตถุที่เป็นกลุ่มยานพาหนะ
+          let currentVehicles = rawPredictions.filter(p => allowedClasses.includes(p.class) && p.score > 0.35);
           
           let newTrackedObjects = [];
 
-          for (let p of currentHumans) {
+          // จับคู่พิกัดรถปัจจุบันกับรถในเฟรมก่อนหน้าเพื่อรักษา ID เดิม (Tracking)
+          for (let p of currentVehicles) {
             let [x, y, w, h] = p.bbox;
             let centerX = x + w / 2;
             let centerY = y + h / 2;
             
             let matchedID = null;
-            let minDistance = 70; // ขยายรัศมีจับพิกัดสำหรับคนวิ่งความเร็วสูง
+            let minDistance = 60; // ระยะห่างสูงสุดที่ยอมรับได้ว่าเป็นรถคันเดิม (พิกัดพิกเซล)
 
-            // ค้นหา ID เดิมจากเฟรมที่แล้ว
-            let oldRecord = trackedObjects.find(oldObj => {
+            for (let oldObj of trackedObjects) {
               let dist = Math.hypot(centerX - oldObj.lastX, centerY - oldObj.lastY);
-              return dist < minDistance;
-            });
+              if (dist < minDistance) {
+                minDistance = dist;
+                matchedID = oldObj.id;
+              }
+            }
 
-            if (oldRecord) {
-              matchedID = oldRecord.id;
-            } else {
+            // ถ้าเป็นรถคันใหม่ที่เพิ่งวิ่งเข้ามา ให้แจก ID ใหม่ป้ายแดง
+            if (matchedID === null) {
               matchedID = nextObjectID++;
             }
 
-            // จัดการพิกัดหน้าจอกระจกเงา (Mirror)
+            // ตรวจสอบระบบสลับฝั่ง (Mirror Mode) สำหรับกล้องหน้าหรือคอม
             const isMirror = (isMobile && currentFacingMode === "user") || !isMobile;
             let drawX = x;
-            let drawCenterX = centerX;
-            if (isMirror) { 
-              drawX = canvas.width - x - w; 
-              drawCenterX = canvas.width - centerX;
-            }
+            if (isMirror) { drawX = canvas.width - x - w; }
 
-            // สร้างหรือดึงประวัติเส้นหางเดิมมาใช้งานต่อ
-            let historyPath = [];
-            if (oldRecord && oldRecord.path) {
-              historyPath = [...oldRecord.path];
-            }
-            
-            // บันทึกพิกัดกึ่งกลางปัจจุบันลงในเส้นหาง
-            historyPath.push({ x: drawCenterX, y: centerY });
-            
-            // ตัดหางทิ้งถ้าขนาดยาวเกินกำหนด (Max 15 จุด)
-            if (historyPath.length > TAIL_MAX_LENGTH) {
-              historyPath.shift();
-            }
-
-            // ตรวจสอบการเดินข้ามเส้นตรวจจับสีแดง
+            // เช็กการวิ่งข้ามเส้น COUNTING_LINE_Y (จากบนลงล่าง หรือล่างขึ้นบน)
             let hasCrossed = countedIDs.has(matchedID);
+            
+            // หาประวัติคันเก่าเพื่อดูแนวโน้มทิศทางเคลื่อนที่
+            let oldRecord = trackedObjects.find(o => o.id === matchedID);
             if (oldRecord && !hasCrossed) {
+              // ถ้าเฟรมก่อนอยู่ฝั่งหนึ่ง เฟรมนี้อยู่อีกฝั่งหนึ่งของเส้น = ข้ามเส้นแล้วชัวร์
               if ((oldRecord.lastY <= COUNTING_LINE_Y && centerY > COUNTING_LINE_Y) ||
                   (oldRecord.lastY >= COUNTING_LINE_Y && centerY < COUNTING_LINE_Y)) {
                 
-                totalHumanCount++; 
-                countedIDs.add(matchedID); 
+                totalCarCount++; // นับเพิ่มขึ้น 1 คัน
+                countedIDs.add(matchedID); // บันทึก ID ลงกล่องห้ามนับซ้ำ
                 hasCrossed = true;
                 
-                statusElement.innerText = `🚨 SECURITY ALERT: Target ID ${matchedID} ผ่านเส้นตรวจเช็ก!`;
+                // แจ้งเตือนกระตุ้นหน้าจอ
+                statusElement.innerText = `🚨 ตรวจพบ ${p.class} ID: ${matchedID} วิ่งผ่านเส้น!`;
                 statusElement.style.color = "#ffcc00";
               }
             }
@@ -259,30 +251,34 @@
               drawY: y,
               w: w,
               h: h,
-              score: p.score,
-              path: historyPath // แนบประวัติเส้นหางไปกับตัววัตถุ
+              label: p.class,
+              score: p.score
             });
           }
 
+          // อัปเดตรายชื่อวัตถุในจอภาพเฟรมปัจจุบัน
           trackedObjects = newTrackedObjects;
           
-          document.getElementById('humanCountDisplay').innerText = totalHumanCount;
+          // แสดงผลหน้าแดชบอร์ดข้อมูล
+          document.getElementById('carCountDisplay').innerText = totalCarCount;
           document.getElementById('trackedObjectsDisplay').innerText = trackedObjects.length;
+          document.getElementById('countedIdsList').innerText = JSON.stringify(Array.from(countedIDs));
 
         } catch (err) {
           console.error(err);
         }
       }
-      setTimeout(runInference, 40); // เพิ่มความเร็วเฟรมเรต AI เพื่อให้หางนิ่งไม่กระตุก
+      setTimeout(runInference, 50); // เร่งความเร็วการ Tracking ให้ถี่ขึ้นเพื่อป้องกันรถหลุด ID
     }
 
-    // 🎬 6. หลูปวาดกราฟิก (ภาพสด + เส้นเขตสนามบิน + กรอบคน + เส้นหางลากยาวตามก้น)
+    // 🎬 6. หลูปการวาดกราฟิกบนหน้าจอ (วาดภาพสด + เส้นสีแดง + กรอบรถพร้อมเลข ID)
     function renderLoop() {
       if (video.readyState === video.HAVE_ENOUGH_DATA) {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         
         const isMirror = (isMobile && currentFacingMode === "user") || !isMobile;
 
+        // วาดภาพวิดีโอหลัก
         if (isMirror) {
           ctx.save();
           ctx.translate(canvas.width, 0);
@@ -293,61 +289,44 @@
           ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
         }
 
-        // 🟥 วาดเส้นเขตป้องกันความปลอดภัย (Security Line)
-        ctx.strokeStyle = "#ff1744";
+        // 🟥 วาดเส้นแบ่งเขตตรวจจับรถข้ามเส้น (COUNTING LINE)
+        ctx.strokeStyle = countedIDs.size > 0 ? "#ff3333" : "#ff0000";
         ctx.lineWidth = 4;
         ctx.beginPath();
         ctx.moveTo(0, COUNTING_LINE_Y);
         ctx.lineTo(canvas.width, COUNTING_LINE_Y);
         ctx.stroke();
         
-        ctx.fillStyle = "#ff1744";
+        // เขียนข้อความบอกตำแหน่งเส้นกำกับไว้
+        ctx.fillStyle = "#ff0000";
         ctx.font = "bold 13px sans-serif";
-        ctx.fillText("🛡️ เขตควบคุมความปลอดภัยสนามบิน (SECURITY CHECK LINE)", 15, COUNTING_LINE_Y - 8);
+        ctx.fillText("🛑 เส้นตรวจจับการนับรถ (COUNTING LINE)", 15, COUNTING_LINE_Y - 8);
 
-        // วาดกรอบคน และ วาดเส้นหางการเคลื่อนไหว
+        // วาดกรอบสี่เหลี่ยมรอบรถที่กำลังตรวจจับพร้อมแสดงหมายเลข ID ติดตามตัว
         for (let obj of trackedObjects) {
-          let isCounted = countedIDs.has(obj.id);
+          let isPassed = countedIDs.has(obj.id);
           
-          // 🔵 🎯 เริ่มกระบวนการวาด "เส้นหางความเคลื่อนไหว" (Motion Path Tail)
-          if (obj.path && obj.path.length > 1) {
-            ctx.lineWidth = 4;
-            ctx.lineJoin = "round";
-            ctx.lineCap = "round";
-            
-            // วนลูปวาดเส้นเชื่อมจากจุดอดีตมาถึงจุดปัจจุบัน
-            for (let j = 1; j < obj.path.length; j++) {
-              // คำนวณสีไล่เฉด (ความจาง) ให้หางจางลงเรื่อยๆ ตามเวลาอดีต
-              let opacity = j / obj.path.length;
-              ctx.strokeStyle = `rgba(0, 229, 255, ${opacity})`; // สีฟ้าไซแอนสะท้อนแสงแบบสนามบิน
-              
-              ctx.beginPath();
-              ctx.moveTo(obj.path[j - 1].x, obj.path[j - 1].y);
-              ctx.lineTo(obj.path[j].x, obj.path[j].y);
-              ctx.stroke();
-            }
-          }
-
-          // วาดกรอบสี่เหลี่ยมรอบตัวคน (ถ้านับแล้วขึ้นสีแดงเข้มเพื่อความปลอดภัย ถ้ายังไม่ผ่านขึ้นสีฟ้า)
-          ctx.strokeStyle = isCounted ? "#ff1744" : "#00e5ff";
+          // หากรถคันนี้นับสิทธิ์ไปแล้ว ให้แสดงกรอบสีส้ม (นับแล้ว) ถ้ายังไม่ผ่านให้ขึ้นสีเขียวสด
+          ctx.strokeStyle = isPassed ? "#ff9900" : "#00ff00";
           ctx.lineWidth = 3;
           ctx.strokeRect(obj.drawX, obj.drawY, obj.w, obj.h);
 
-          // วาดแผ่นแถบป้ายข้อความหัวกรอบคน
-          ctx.fillStyle = isCounted ? "#ff1744" : "#00e5ff";
-          let labelText = `TARGET 🆔: ${obj.id} [HUMAN]`;
-          ctx.fillRect(obj.drawX, obj.drawY - 25, labelText.length * 8.5 + 10, 25);
+          // พ่นแถบป้ายข้อความหัวกรอบรถ
+          ctx.fillStyle = isPassed ? "#ff9900" : "#00ff00";
+          let speedText = Math.round(obj.score * 100) + "%";
+          let labelText = `ID: ${obj.id} [${obj.label}] ${speedText}`;
+          ctx.fillRect(obj.drawX, obj.drawY - 25, labelText.length * 9 + 10, 25);
 
-          // เขียนตัวหนังสือบอกเลขประจำตัว ID คันเดิมบนป้าย
+          // เขียนตัวหนังสือบอก ID และคลาสของรถลงบนป้าย
           ctx.fillStyle = "#000000";
-          ctx.font = "bold 13px monospace";
+          ctx.font = "bold 14px monospace";
           ctx.fillText(labelText, obj.drawX + 5, obj.drawY - 7);
           
-          // วาดจุดสีแดงกลางตัว เพื่อแสดงตำแหน่งจุดป้อนค่าเข้าเส้นหาง
-          ctx.fillStyle = "#ffcc00";
-          let currentDotX = obj.drawX + obj.w/2;
+          // วาดจุดกึ่งกลางรถ (Centroid) เพื่อให้เห็นพิกัดตรวจจับชัดเจน
+          ctx.fillStyle = "#ffffff";
+          let dotX = obj.drawX + obj.w/2;
           ctx.beginPath();
-          ctx.arc(currentDotX, obj.drawY + obj.h/2, 4, 0, 2 * Math.PI);
+          ctx.arc(dotX, obj.drawY + obj.h/2, 5, 0, 2 * Math.PI);
           ctx.fill();
         }
       }
@@ -355,18 +334,18 @@
     }
 
     function resetCounter() {
-      totalHumanCount = 0;
+      totalCarCount = 0;
       nextObjectID = 1;
       trackedObjects = [];
       countedIDs.clear();
-      document.getElementById('humanCountDisplay').innerText = "0";
-      document.getElementById('trackedObjectsDisplay').innerText = "0";
-      statusElement.innerText = "เคลียร์ฐานข้อมูลความปลอดภัย เริ่มต้นนับ 0 ใหม่";
+      document.getElementById('carCountDisplay').innerText = "0";
+      document.getElementById('countedIdsList').innerText = "[]";
+      statusElement.innerText = "ล้างข้อมูลระบบตัวนับใหม่เรียบร้อย";
       statusElement.style.color = "#aaa";
     }
 
     function captureAndSend() {
-      statusElement.innerText = "กำลังอัปโหลดภาพหลักฐานระบุเส้นทางเข้า Google Drive...";
+      statusElement.innerText = "กำลังอัปโหลดหลักฐานพร้อมตัวเลขนับเข้า Google Drive...";
       statusElement.style.color = "#007bff";
       
       const base64Image = canvas.toDataURL('image/jpeg', 0.85);
@@ -379,7 +358,7 @@
         body: formBody
       })
       .then(() => {
-        statusElement.innerText = `📸 สำเร็จ! ภาพหลักฐานเส้นทางคน (ยอดนับปัจจุบัน: ${totalHumanCount} คน) ถูกส่งเข้าไดรฟ์เรียบร้อย`;
+        statusElement.innerText = `📸 สำเร็จ! ภาพนับรถหลักฐาน (ยอดรวมปัจจุบัน: ${totalCarCount} คัน) บันทึกลงไดรฟ์แล้ว`;
         statusElement.style.color = "#28a745";
       })
       .catch(err => {
