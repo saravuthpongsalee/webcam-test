@@ -3,77 +3,76 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>YOLO Web Detector - Fix Alignment v3.0.1</title>
+  <title>AI Car Counter - ID Tracking v4.0</title>
   
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
   
   <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; text-align: center; padding: 10px; background: #121212; color: #fff; margin: 0; touch-action: manipulation; }
-    .container { position: relative; width: 100%; max-width: 500px; margin: 0 auto; min-height: 250px; }
-    
-    video { display: none; } /* ซ่อนกล้องดิบ */
-    
-    /* จอแสดงผลหลัก */
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; text-align: center; padding: 10px; background: #121212; color: #fff; margin: 0; }
+    .container { position: relative; width: 100%; max-width: 500px; margin: 0 auto; }
+    video { display: none; } 
     canvas { width: 100% !important; height: auto !important; border-radius: 12px; box-shadow: 0 8px 30px rgba(0,0,0,0.7); background-color: #000; }
     
-    /* แผงควบคุม */
-    .control-panel { margin-top: 15px; background: #1e1e1e; padding: 15px; border-radius: 12px; border: 1px solid #333; max-width: 470px; margin-left: auto; margin-right: auto; }
-    .btn-group { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-bottom: 15px; }
+    /* กล่องแสดงตัวเลขยอดรวมการนับรถ */
+    .counter-dashboard { display: flex; justify-content: space-around; max-width: 470px; margin: 10px auto; background: #222; padding: 15px; border-radius: 12px; border: 1px solid #333; }
+    .counter-item { text-align: center; }
+    .counter-item h3 { margin: 0 0 5px 0; font-size: 14px; color: #aaa; }
+    .counter-item p { margin: 0; font-size: 32px; font-weight: bold; color: #00ff00; font-family: monospace; }
+    
+    .control-panel { background: #1e1e1e; padding: 15px; border-radius: 12px; border: 1px solid #333; max-width: 470px; margin: 0 auto; }
+    .btn-group { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-bottom: 12px; }
     .btn { background: #007bff; color: #fff; border: none; padding: 12px 18px; font-size: 14px; border-radius: 8px; cursor: pointer; font-weight: bold; }
     .btn-success { background: #28a745; }
-    .btn-secondary { background: #6c757d; }
-    
-    /* สไลเดอร์ปรับความแม่นยำ */
-    .slider-group { color: #aaa; font-size: 13px; display: flex; align-items: center; justify-content: center; gap: 10px; }
-    input[type=range] { width: 100%; max-width: 200px; cursor: pointer; }
+    .btn-danger { background: #dc3545; }
     
     #cameraSelectContainer { margin-top: 10px; display: none; }
     select { background: #333; color: #fff; border: 1px solid #555; padding: 10px; border-radius: 6px; font-size: 14px; width: 100%; max-width: 300px; }
     
-    /* แผง Debug สีเขียว */
-    .debug-box { max-width: 430px; margin: 20px auto 0 auto; background: #131313; border: 1px solid #333; border-radius: 8px; padding: 12px; text-align: left; font-size: 12px; font-family: monospace; color: #00ff00; line-height: 1.6; }
-    .debug-title { font-weight: bold; color: #ffcc00; margin-bottom: 5px; border-bottom: 1px solid #333; padding-bottom: 5px; text-align: center; font-size: 13px; }
-    #status { margin-top: 15px; font-size: 14px; color: #999; padding: 0 10px; }
+    .debug-box { max-width: 430px; margin: 15px auto 0 auto; background: #131313; border: 1px solid #333; border-radius: 8px; padding: 12px; text-align: left; font-size: 12px; font-family: monospace; color: #00ff00; line-height: 1.6; }
+    #status { margin-top: 10px; font-size: 14px; color: #999; }
   </style>
 </head>
 <body>
 
-  <h2>AI Object Detector Pro</h2>
+  <h2>AI Vehicle Counter Pro</h2>
   
   <div class="container">
     <video id="video" autoplay playsinline muted></video>
     <canvas id="canvas" width="640" height="480"></canvas>
   </div>
 
+  <div class="counter-dashboard">
+    <div class="counter-item">
+      <h3>🚗 จำนวนรถที่นับได้ (TOTAL)</h3>
+      <p id="carCountDisplay">0</p>
+    </div>
+    <div class="counter-item">
+      <h3>🆔 กำลังติดตามในจอ</h3>
+      <p id="trackedObjectsDisplay" style="color: #ffcc00;">0</p>
+    </div>
+  </div>
+
   <div class="control-panel">
     <div class="btn-group">
-      <button id="switchBtn" class="btn btn-secondary" onclick="switchCameraMobile()">🔄 สลับกล้อง หน้า/หลัง</button>
-      <button class="btn btn-success" onclick="captureAndSend()">📸 เซฟภาพ & ส่ง Google Sheets</button>
+      <button id="switchBtn" class="btn" style="background:#6c757d;" onclick="switchCameraMobile()">🔄 สลับกล้อง หน้า/หลัง</button>
+      <button class="btn btn-success" onclick="captureAndSend()">📸 ส่งภาพหลักฐานไป Google</button>
+      <button class="btn btn-danger" onclick="resetCounter()">🧹 รีเซ็ตตัวนับ</button>
     </div>
     
     <div id="cameraSelectContainer">
       <select id="videoSource" onchange="startCamera()"></select>
-    </div>
-
-    <div class="slider-group">
-      <span>แม่นยำสูง (กรอบขึ้นยาก)</span>
-      <input type="range" id="thresholdSlider" min="10" max="90" value="40" oninput="updateThreshold(this.value)">
-      <span>ทายเก่ง (กรอบขึ้นง่าย)</span>
-      <span id="thresholdNum" style="color:#00ff00; font-weight:bold;">(40%)</span>
     </div>
   </div>
   
   <p id="status">กำลังเตรียม AI เอนจิ้น...</p>
 
   <div class="debug-box">
-    <div class="debug-title">🛠️ SYSTEM DIAGNOSTICS</div>
-    <div>VERSION       : <span style="color:#fff;">AI Object Detector Pro v3.0.1</span></div>
-    <div>DEVICE        : <span id="devType" style="color:#fff;">-</span></div>
-    <div>OS / BROWSER  : <span id="devOS" style="color:#fff;">-</span></div>
+    <div style="text-align:center; font-weight:bold; color:#ffcc00; margin-bottom:5px;">🛠️ TRACKING DIAGNOSTICS</div>
+    <div>DEVICE MODE   : <span id="devType" style="color:#fff;">-</span></div>
     <div>ACTIVE CAMERA : <span id="devCam" style="color:#fff;">-</span></div>
-    <div>AI STATUS     : <span id="aiStatus" style="color:#fff;">-</span></div>
-    <div>BOX ALIGNMENT : <span id="alignMode" style="color:#fff;">Front Cam Mirror (Fix)</span></div>
+    <div>TARGET CLASS  : <span style="color:#fff;">car, motorcycle, truck, bus</span></div>
+    <div>COUNTED IDs   : <span id="countedIdsList" style="color:#fff;">[]</span></div>
   </div>
 
   <script>
@@ -86,39 +85,38 @@
     let cameraSelectContainer = document.getElementById('cameraSelectContainer');
     let switchBtn = document.getElementById('switchBtn');
     let statusElement = document.getElementById('status');
-    let thresholdNumElement = document.getElementById('thresholdNum');
     
     let streamRef = null;
     let modelSession = null;
-    let currentFacingMode = "user"; // เริ่มที่กล้องหน้าเพื่อให้เปิดกล้องง่ายขึ้น
+    let currentFacingMode = "environment"; // นับรถแนะนำให้เริ่มรันที่กล้องหลัง เพื่อสะดวกในการส่อง
     let isMobile = false;
-    let currentPredictions = [];
-    let currentThreshold = 0.40; // ค่าเริ่มต้น Threshold ความแม่นยำ
+    
+    // --- โครงสร้างระบบ Tracking & ID (แก้ปัญหานับซ้ำ) ---
+    let totalCarCount = 0;
+    let nextObjectID = 1;
+    let trackedObjects = []; // เก็บประวัติวัตถุในจอ [{id, lastX, lastY, box, label, crossed}]
+    let countedIDs = new Set(); // บันทึก ID ที่ผ่านเส้นไปแล้ว เพื่อห้ามนับซ้ำ
+    
+    // ตำแหน่งเส้นตรวจจับสีแดง (ลากแนวนอนตรงกลางจอความสูง 480px -> เส้นอยู่ที่ 240px)
+    const COUNTING_LINE_Y = 240; 
+    // ประเภทวัตถุที่ระบบยอมรับให้นับ
+    const allowedClasses = ['car', 'motorcycle', 'truck', 'bus'];
 
-    // 1. ตรวจสอบเครื่องและเวอร์ชันระบบ
     function checkDevice() {
       const ua = navigator.userAgent;
-      document.getElementById('devOS').innerText = ua.substring(0, 50) + "...";
       if (/Android|iPhone|iPad|iPod/i.test(ua)) {
         isMobile = true;
-        document.getElementById('devType').innerText = "📱 MOBILE / TABLET";
+        document.getElementById('devType').innerText = "📱 MOBILE";
         cameraSelectContainer.style.display = "none";
         switchBtn.style.display = "inline-block";
       } else {
         isMobile = false;
-        document.getElementById('devType').innerText = "💻 COMPUTER / LAPTOP";
+        document.getElementById('devType').innerText = "💻 COMPUTER";
         cameraSelectContainer.style.display = "block";
         switchBtn.style.display = "none";
       }
     }
 
-    // ฟังก์ชันปรับค่า Threshold จากสไลเดอร์
-    function updateThreshold(val) {
-      currentThreshold = val / 100;
-      thresholdNumElement.innerText = `(${val}%)`;
-    }
-
-    // 2. ดึงรายชื่อกล้อง (สำหรับคอม)
     function getCameras() {
       if (isMobile) return;
       navigator.mediaDevices.enumerateDevices().then(devices => {
@@ -134,34 +132,24 @@
       });
     }
 
-    // 🧠 3. โหลด AI แบบเร่งพลังงานสูงสุดเท่าที่เบราว์เซอร์รับไหว
     async function initAI() {
-      statusElement.innerText = "กำลังดาวน์โหลดสมองกล AI...";
-      document.getElementById('aiStatus').innerText = "กำลังโหลดโมเดล...";
-      
+      statusElement.innerText = "กำลังดาวน์โหลดโมเดลนับรถ AI...";
       try {
-        // ใช้ tf.js จัดการ WebGL เพื่อเร่งความเร็ว
         await tf.ready();
-        // โหลดโมเดล COCO-SSD (ใช้ mobilenet_v2 ซึ่งเสถียรที่สุดสำหรับเบราว์เซอร์)
         modelSession = await cocoSsd.load({ base: 'mobilenet_v2' });
-        
-        document.getElementById('aiStatus').innerText = "AI ACTIVE (WebGL Accelerated)";
-        statusElement.innerText = "โหลด AI สำเร็จ! กำลังเปิดกล้อง...";
+        statusElement.innerText = "ระบบนับรถพร้อมทำงาน!";
         statusElement.style.color = "#28a745";
         
         await startCamera();
-        runInference(); // สั่ง AI คำนวณเบื้องหลังไม่ให้หน่วงหน้าจอ
-        renderLoop();   // สั่งลูปวาดหน้าจอ
+        runInference(); 
+        renderLoop();   
       } catch (e) {
-        document.getElementById('aiStatus').innerText = "AI ENGINE ERROR";
-        statusElement.innerText = "โหลด AI ไม่สำเร็จ (จะเปิดกล้องธรรมดา): " + e.message;
-        statusElement.style.color = "#dc3545";
+        statusElement.innerText = "โหลดระบบล้มเหลว: " + e.message;
         startCamera();
         renderLoop();
       }
     }
 
-    // 4. เปิดกล้องแบบปลอดภัย (สลับหน้าหลังไม่จอดำ)
     async function startCamera() {
       if (streamRef) {
         streamRef.getTracks().forEach(track => track.stop());
@@ -171,8 +159,8 @@
 
       let constraints = { audio: false };
       if (isMobile) {
-        constraints.video = { facingMode: currentFacingMode, width: { ideal: 640 }, height: { ideal: 480 } };
-        document.getElementById('devCam').innerText = currentFacingMode === "user" ? "FRONT CAMERA (กล้องหน้า)" : "BACK CAMERA (กล้องหลัง)";
+        constraints.video = { facingMode: currentFacingMode, width: 640, height: 480 };
+        document.getElementById('devCam').innerText = currentFacingMode === "user" ? "FRONT (หน้า)" : "BACK (หลัง)";
       } else {
         const videoSource = videoSelect.value;
         constraints.video = { deviceId: videoSource ? { exact: videoSource } : undefined, width: 640, height: 480 };
@@ -187,8 +175,7 @@
         video.srcObject = stream;
         await video.play();
       } catch (err) {
-        statusElement.innerText = "เปิดกล้องล้มเหลว: " + err.message;
-        statusElement.style.color = "#dc3545";
+        statusElement.innerText = "กล้องเออร์เรอร์: " + err.message;
       }
     }
 
@@ -198,82 +185,170 @@
       startCamera();
     }
 
-    // ⚡ 5. รัน AI คำนวณเบื้องหลังแยกกับความเร็วหน้าจอ วิดีโอจะได้ลื่น
+    // ⚡ 5. ระบบคำนวณและแจกจ่าย ID วัตถุแบบเรียลไทม์ (Centroid Tracking)
     async function runInference() {
       if (modelSession && video.readyState === video.HAVE_ENOUGH_DATA) {
         try {
-          // สั่ง AI ตรวจจับ โดยไม่กำหนดค่า threshold ในนี้ เพื่อให้ AI ส่งผลลัพธ์มาทั้งหมด
-          currentPredictions = await modelSession.detect(video);
+          const rawPredictions = await modelSession.detect(video);
+          
+          // กรองเอาเฉพาะวัตถุที่เป็นกลุ่มยานพาหนะ
+          let currentVehicles = rawPredictions.filter(p => allowedClasses.includes(p.class) && p.score > 0.35);
+          
+          let newTrackedObjects = [];
+
+          // จับคู่พิกัดรถปัจจุบันกับรถในเฟรมก่อนหน้าเพื่อรักษา ID เดิม (Tracking)
+          for (let p of currentVehicles) {
+            let [x, y, w, h] = p.bbox;
+            let centerX = x + w / 2;
+            let centerY = y + h / 2;
+            
+            let matchedID = null;
+            let minDistance = 60; // ระยะห่างสูงสุดที่ยอมรับได้ว่าเป็นรถคันเดิม (พิกัดพิกเซล)
+
+            for (let oldObj of trackedObjects) {
+              let dist = Math.hypot(centerX - oldObj.lastX, centerY - oldObj.lastY);
+              if (dist < minDistance) {
+                minDistance = dist;
+                matchedID = oldObj.id;
+              }
+            }
+
+            // ถ้าเป็นรถคันใหม่ที่เพิ่งวิ่งเข้ามา ให้แจก ID ใหม่ป้ายแดง
+            if (matchedID === null) {
+              matchedID = nextObjectID++;
+            }
+
+            // ตรวจสอบระบบสลับฝั่ง (Mirror Mode) สำหรับกล้องหน้าหรือคอม
+            const isMirror = (isMobile && currentFacingMode === "user") || !isMobile;
+            let drawX = x;
+            if (isMirror) { drawX = canvas.width - x - w; }
+
+            // เช็กการวิ่งข้ามเส้น COUNTING_LINE_Y (จากบนลงล่าง หรือล่างขึ้นบน)
+            let hasCrossed = countedIDs.has(matchedID);
+            
+            // หาประวัติคันเก่าเพื่อดูแนวโน้มทิศทางเคลื่อนที่
+            let oldRecord = trackedObjects.find(o => o.id === matchedID);
+            if (oldRecord && !hasCrossed) {
+              // ถ้าเฟรมก่อนอยู่ฝั่งหนึ่ง เฟรมนี้อยู่อีกฝั่งหนึ่งของเส้น = ข้ามเส้นแล้วชัวร์
+              if ((oldRecord.lastY <= COUNTING_LINE_Y && centerY > COUNTING_LINE_Y) ||
+                  (oldRecord.lastY >= COUNTING_LINE_Y && centerY < COUNTING_LINE_Y)) {
+                
+                totalCarCount++; // นับเพิ่มขึ้น 1 คัน
+                countedIDs.add(matchedID); // บันทึก ID ลงกล่องห้ามนับซ้ำ
+                hasCrossed = true;
+                
+                // แจ้งเตือนกระตุ้นหน้าจอ
+                statusElement.innerText = `🚨 ตรวจพบ ${p.class} ID: ${matchedID} วิ่งผ่านเส้น!`;
+                statusElement.style.color = "#ffcc00";
+              }
+            }
+
+            newTrackedObjects.push({
+              id: matchedID,
+              lastX: centerX,
+              lastY: centerY,
+              drawX: drawX,
+              drawY: y,
+              w: w,
+              h: h,
+              label: p.class,
+              score: p.score
+            });
+          }
+
+          // อัปเดตรายชื่อวัตถุในจอภาพเฟรมปัจจุบัน
+          trackedObjects = newTrackedObjects;
+          
+          // แสดงผลหน้าแดชบอร์ดข้อมูล
+          document.getElementById('carCountDisplay').innerText = totalCarCount;
+          document.getElementById('trackedObjectsDisplay').innerText = trackedObjects.length;
+          document.getElementById('countedIdsList').innerText = JSON.stringify(Array.from(countedIDs));
+
         } catch (err) {
-          console.error("AI Inference Error:", err);
+          console.error(err);
         }
       }
-      // สั่งทำงานต่อทุกๆ 80 มิลลิวินาที (ไม่โหลดเครื่องเกินไป)
-      setTimeout(runInference, 80);
+      setTimeout(runInference, 50); // เร่งความเร็วการ Tracking ให้ถี่ขึ้นเพื่อป้องกันรถหลุด ID
     }
 
-    // 🎬 6. ลูปวาดหน้าจอ (Canvas) พร้อมแก้ปัญหากรอบไม่ตรง
+    // 🎬 6. หลูปการวาดกราฟิกบนหน้าจอ (วาดภาพสด + เส้นสีแดง + กรอบรถพร้อมเลข ID)
     function renderLoop() {
       if (video.readyState === video.HAVE_ENOUGH_DATA) {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         
-        // กฎเหล็ก: เปิดบนคอม หรือ กล้องหน้ามือถือ ต้องสลับด้านภาพ (กระจกเงา)
-        const shouldMirror = (isMobile && currentFacingMode === "user") || !isMobile;
+        const isMirror = (isMobile && currentFacingMode === "user") || !isMobile;
 
-        if (shouldMirror) {
+        // วาดภาพวิดีโอหลัก
+        if (isMirror) {
           ctx.save();
           ctx.translate(canvas.width, 0);
           ctx.scale(-1, 1);
           ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
           ctx.restore();
-          document.getElementById('alignMode').innerText = "Fix Applied: Mirror (Front/Desktop)";
         } else {
           ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-          document.getElementById('alignMode').innerText = "Fix Applied: Regular (Back Camera)";
         }
 
-        // วาดกรอบสีเขียวสด (เฉพาะที่ผ่านค่า Threshold ที่เราตั้งไว้)
-        for (let i = 0; i < currentPredictions.length; i++) {
-          let object = currentPredictions[i];
-          
-          // ตรวจสอบค่าความแม่นยำกับสไลเดอร์ หากต่ำกว่าไม่ต้องวาด
-          if (object.score < currentThreshold) continue;
+        // 🟥 วาดเส้นแบ่งเขตตรวจจับรถข้ามเส้น (COUNTING LINE)
+        ctx.strokeStyle = countedIDs.size > 0 ? "#ff3333" : "#ff0000";
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.moveTo(0, COUNTING_LINE_Y);
+        ctx.lineTo(canvas.width, COUNTING_LINE_Y);
+        ctx.stroke();
+        
+        // เขียนข้อความบอกตำแหน่งเส้นกำกับไว้
+        ctx.fillStyle = "#ff0000";
+        ctx.font = "bold 13px sans-serif";
+        ctx.fillText("🛑 เส้นตรวจจับการนับรถ (COUNTING LINE)", 15, COUNTING_LINE_Y - 8);
 
-          // ดึงพิกัดดั้งเดิมจาก AI (YOLO)
-          let [x, y, width, height] = object.bbox;
+        // วาดกรอบสี่เหลี่ยมรอบรถที่กำลังตรวจจับพร้อมแสดงหมายเลข ID ติดตามตัว
+        for (let obj of trackedObjects) {
+          let isPassed = countedIDs.has(obj.id);
           
-          // 🛠️ 🎯 หัวใจหลักของการแก้ปัญหากรอบไม่ตรง 🎯
-          // หากหน้าจอถูกกลับด้าน (Mirror) เราต้อง "Flip" พิกัดกรอบคืนกลับไปฝั่งตรงข้าม
-          if (shouldMirror) {
-            x = canvas.width - x - width;
-          }
-
-          // วาดกรอบ
-          ctx.strokeStyle = "#00ff00";
+          // หากรถคันนี้นับสิทธิ์ไปแล้ว ให้แสดงกรอบสีส้ม (นับแล้ว) ถ้ายังไม่ผ่านให้ขึ้นสีเขียวสด
+          ctx.strokeStyle = isPassed ? "#ff9900" : "#00ff00";
           ctx.lineWidth = 3;
-          ctx.strokeRect(x, y, width, height);
+          ctx.strokeRect(obj.drawX, obj.drawY, obj.w, obj.h);
 
-          // วาดแถบป้ายชื่อ
-          ctx.fillStyle = "#00ff00";
-          let percentage = Math.round(object.score * 100) + "%";
-          let labelText = `${object.class} ${percentage}`;
-          ctx.fillRect(x, y - 25, labelText.length * 9.5 + 15, 25);
+          // พ่นแถบป้ายข้อความหัวกรอบรถ
+          ctx.fillStyle = isPassed ? "#ff9900" : "#00ff00";
+          let speedText = Math.round(obj.score * 100) + "%";
+          let labelText = `ID: ${obj.id} [${obj.label}] ${speedText}`;
+          ctx.fillRect(obj.drawX, obj.drawY - 25, labelText.length * 9 + 10, 25);
 
-          // เขียนตัวหนังสือ
+          // เขียนตัวหนังสือบอก ID และคลาสของรถลงบนป้าย
           ctx.fillStyle = "#000000";
-          ctx.font = "bold 15px monospace";
-          ctx.fillText(labelText, x + 5, y - 7);
+          ctx.font = "bold 14px monospace";
+          ctx.fillText(labelText, obj.drawX + 5, obj.drawY - 7);
+          
+          // วาดจุดกึ่งกลางรถ (Centroid) เพื่อให้เห็นพิกัดตรวจจับชัดเจน
+          ctx.fillStyle = "#ffffff";
+          let dotX = obj.drawX + obj.w/2;
+          ctx.beginPath();
+          ctx.arc(dotX, obj.drawY + obj.h/2, 5, 0, 2 * Math.PI);
+          ctx.fill();
         }
       }
       requestAnimationFrame(renderLoop);
     }
 
-    // 7. ถ่ายรูปภาพพร้อมกรอบ AI ส่งไป Google Sheets/Drive
+    function resetCounter() {
+      totalCarCount = 0;
+      nextObjectID = 1;
+      trackedObjects = [];
+      countedIDs.clear();
+      document.getElementById('carCountDisplay').innerText = "0";
+      document.getElementById('countedIdsList').innerText = "[]";
+      statusElement.innerText = "ล้างข้อมูลระบบตัวนับใหม่เรียบร้อย";
+      statusElement.style.color = "#aaa";
+    }
+
     function captureAndSend() {
-      statusElement.innerText = "กำลังอัปโหลดรูปพร้อมกรอบ AI เข้า Google Drive...";
+      statusElement.innerText = "กำลังอัปโหลดหลักฐานพร้อมตัวเลขนับเข้า Google Drive...";
       statusElement.style.color = "#007bff";
       
-      const base64Image = canvas.toDataURL('image/jpeg', 0.85); // บีบอัดเล็กน้อยเพื่อส่งไว
+      const base64Image = canvas.toDataURL('image/jpeg', 0.85);
       const formBody = 'image=' + encodeURIComponent(base64Image);
 
       fetch(GOOGLE_SCRIPT_URL, {
@@ -283,20 +358,18 @@
         body: formBody
       })
       .then(() => {
-        statusElement.innerText = "📸 อัปโหลดสำเร็จ! รูปพร้อมกรอบถูกเซฟลง Google Drive แล้วครับ";
+        statusElement.innerText = `📸 สำเร็จ! ภาพนับรถหลักฐาน (ยอดรวมปัจจุบัน: ${totalCarCount} คัน) บันทึกลงไดรฟ์แล้ว`;
         statusElement.style.color = "#28a745";
       })
       .catch(err => {
-        statusElement.innerText = "อัปโหลดล้มเหลว: " + err.message;
+        statusElement.innerText = "ส่งข้อมูลล้มเหลว: " + err.message;
         statusElement.style.color = "#dc3545";
       });
     }
 
-    // จุดเริ่มต้นทำงานเมื่อโหลดหน้าเว็บสำเร็จ
     window.onload = async function() {
       checkDevice();
       try {
-        // ขอสิทธิ์กล้องครั้งแรกเพื่อแก้ปัญหา iOS/Android รอบแรกเด้ง
         const initStream = await navigator.mediaDevices.getUserMedia({video: true});
         initStream.getTracks().forEach(track => track.stop());
         getCameras();
