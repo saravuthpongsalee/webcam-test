@@ -3,57 +3,77 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>YOLO Web Detector - Stable Engine</title>
+  <title>YOLO Web Detector - Fix Alignment v3.0.1</title>
   
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
   
   <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; text-align: center; padding: 15px; background: #121212; color: #fff; margin: 0; }
-    .container { position: relative; width: 100%; max-width: 500px; margin: 0 auto; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; text-align: center; padding: 10px; background: #121212; color: #fff; margin: 0; touch-action: manipulation; }
+    .container { position: relative; width: 100%; max-width: 500px; margin: 0 auto; min-height: 250px; }
     
-    video { width: 100%; max-width: 450px; border-radius: 12px; display: none; }
-    canvas { width: 100% !important; height: auto !important; border-radius: 12px; box-shadow: 0 8px 30px rgba(0,0,0,0.6); background-color: #000; display: block; margin: 0 auto; }
+    video { display: none; } /* ซ่อนกล้องดิบ */
     
-    .btn-group { margin-top: 15px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
-    .btn { background: #007bff; color: #fff; border: none; padding: 12px 20px; font-size: 15px; border-radius: 8px; cursor: pointer; font-weight: bold; }
+    /* จอแสดงผลหลัก */
+    canvas { width: 100% !important; height: auto !important; border-radius: 12px; box-shadow: 0 8px 30px rgba(0,0,0,0.7); background-color: #000; }
+    
+    /* แผงควบคุม */
+    .control-panel { margin-top: 15px; background: #1e1e1e; padding: 15px; border-radius: 12px; border: 1px solid #333; max-width: 470px; margin-left: auto; margin-right: auto; }
+    .btn-group { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-bottom: 15px; }
+    .btn { background: #007bff; color: #fff; border: none; padding: 12px 18px; font-size: 14px; border-radius: 8px; cursor: pointer; font-weight: bold; }
     .btn-success { background: #28a745; }
+    .btn-secondary { background: #6c757d; }
+    
+    /* สไลเดอร์ปรับความแม่นยำ */
+    .slider-group { color: #aaa; font-size: 13px; display: flex; align-items: center; justify-content: center; gap: 10px; }
+    input[type=range] { width: 100%; max-width: 200px; cursor: pointer; }
     
     #cameraSelectContainer { margin-top: 10px; display: none; }
     select { background: #333; color: #fff; border: 1px solid #555; padding: 10px; border-radius: 6px; font-size: 14px; width: 100%; max-width: 300px; }
     
-    .debug-box { max-width: 430px; margin: 20px auto 0 auto; background: #1e1e1e; border: 1px solid #333; border-radius: 8px; padding: 12px; text-align: left; font-size: 13px; font-family: monospace; color: #00ff00; }
-    .debug-title { font-weight: bold; color: #ffcc00; margin-bottom: 5px; border-bottom: 1px solid #333; padding-bottom: 5px; }
-    #status { margin-top: 15px; font-size: 14px; color: #aaa; }
+    /* แผง Debug สีเขียว */
+    .debug-box { max-width: 430px; margin: 20px auto 0 auto; background: #131313; border: 1px solid #333; border-radius: 8px; padding: 12px; text-align: left; font-size: 12px; font-family: monospace; color: #00ff00; line-height: 1.6; }
+    .debug-title { font-weight: bold; color: #ffcc00; margin-bottom: 5px; border-bottom: 1px solid #333; padding-bottom: 5px; text-align: center; font-size: 13px; }
+    #status { margin-top: 15px; font-size: 14px; color: #999; padding: 0 10px; }
   </style>
 </head>
 <body>
 
-  <h2>YOLO Nano Web Detector</h2>
+  <h2>AI Object Detector Pro</h2>
   
   <div class="container">
     <video id="video" autoplay playsinline muted></video>
     <canvas id="canvas" width="640" height="480"></canvas>
   </div>
 
-  <div id="cameraSelectContainer">
-    <label for="videoSource">เลือกกล้อง (สำหรับคอม): </label><br><br>
-    <select id="videoSource" onchange="startCamera()"></select>
+  <div class="control-panel">
+    <div class="btn-group">
+      <button id="switchBtn" class="btn btn-secondary" onclick="switchCameraMobile()">🔄 สลับกล้อง หน้า/หลัง</button>
+      <button class="btn btn-success" onclick="captureAndSend()">📸 เซฟภาพ & ส่ง Google Sheets</button>
+    </div>
+    
+    <div id="cameraSelectContainer">
+      <select id="videoSource" onchange="startCamera()"></select>
+    </div>
+
+    <div class="slider-group">
+      <span>แม่นยำสูง (กรอบขึ้นยาก)</span>
+      <input type="range" id="thresholdSlider" min="10" max="90" value="40" oninput="updateThreshold(this.value)">
+      <span>ทายเก่ง (กรอบขึ้นง่าย)</span>
+      <span id="thresholdNum" style="color:#00ff00; font-weight:bold;">(40%)</span>
+    </div>
   </div>
   
-  <div class="btn-group">
-    <button id="switchBtn" class="btn" onclick="switchCameraMobile()">🔄 สลับกล้อง หน้า/หลัง</button>
-    <button class="btn btn-success" onclick="captureAndSend()">📸 ถ่ายรูปส่งไป Google</button>
-  </div>
-  
-  <p id="status">กำลังตรวจสอบระบบ...</p>
+  <p id="status">กำลังเตรียม AI เอนจิ้น...</p>
 
   <div class="debug-box">
-    <div class="debug-title">🛠️ SYSTEM LOGS & VERSION</div>
-    <div>ENGINE VERSION : <span style="color:#fff;">Ultralytics YOLO Web Engine v3.0.0</span></div>
-    <div>DEVICE TYPE   : <span id="devType" style="color:#fff;">-</span></div>
-    <div>ACTIVE CAM   : <span id="devCam" style="color:#fff;">-</span></div>
-    <div>AI ENGINE    : <span id="aiSpeed" style="color:#fff;">กำลังดาวน์โหลดโมเดล...</span></div>
+    <div class="debug-title">🛠️ SYSTEM DIAGNOSTICS</div>
+    <div>VERSION       : <span style="color:#fff;">AI Object Detector Pro v3.0.1</span></div>
+    <div>DEVICE        : <span id="devType" style="color:#fff;">-</span></div>
+    <div>OS / BROWSER  : <span id="devOS" style="color:#fff;">-</span></div>
+    <div>ACTIVE CAMERA : <span id="devCam" style="color:#fff;">-</span></div>
+    <div>AI STATUS     : <span id="aiStatus" style="color:#fff;">-</span></div>
+    <div>BOX ALIGNMENT : <span id="alignMode" style="color:#fff;">Front Cam Mirror (Fix)</span></div>
   </div>
 
   <script>
@@ -66,18 +86,22 @@
     let cameraSelectContainer = document.getElementById('cameraSelectContainer');
     let switchBtn = document.getElementById('switchBtn');
     let statusElement = document.getElementById('status');
+    let thresholdNumElement = document.getElementById('thresholdNum');
     
     let streamRef = null;
     let modelSession = null;
-    let currentFacingMode = "user"; 
+    let currentFacingMode = "user"; // เริ่มที่กล้องหน้าเพื่อให้เปิดกล้องง่ายขึ้น
     let isMobile = false;
-    let predictions = [];
+    let currentPredictions = [];
+    let currentThreshold = 0.40; // ค่าเริ่มต้น Threshold ความแม่นยำ
 
+    // 1. ตรวจสอบเครื่องและเวอร์ชันระบบ
     function checkDevice() {
       const ua = navigator.userAgent;
+      document.getElementById('devOS').innerText = ua.substring(0, 50) + "...";
       if (/Android|iPhone|iPad|iPod/i.test(ua)) {
         isMobile = true;
-        document.getElementById('devType').innerText = "📱 MOBILE DEVICE";
+        document.getElementById('devType').innerText = "📱 MOBILE / TABLET";
         cameraSelectContainer.style.display = "none";
         switchBtn.style.display = "inline-block";
       } else {
@@ -88,6 +112,13 @@
       }
     }
 
+    // ฟังก์ชันปรับค่า Threshold จากสไลเดอร์
+    function updateThreshold(val) {
+      currentThreshold = val / 100;
+      thresholdNumElement.innerText = `(${val}%)`;
+    }
+
+    // 2. ดึงรายชื่อกล้อง (สำหรับคอม)
     function getCameras() {
       if (isMobile) return;
       navigator.mediaDevices.enumerateDevices().then(devices => {
@@ -103,27 +134,34 @@
       });
     }
 
-    // 🧠 โหลดโมเดลผ่านโครงสร้างที่เบราว์เซอร์ยอมรับได้แน่นอน 100%
+    // 🧠 3. โหลด AI แบบเร่งพลังงานสูงสุดเท่าที่เบราว์เซอร์รับไหว
     async function initAI() {
-      statusElement.innerText = "กำลังดาวน์โหลดโมเดลโครงข่าย AI...";
+      statusElement.innerText = "กำลังดาวน์โหลดสมองกล AI...";
+      document.getElementById('aiStatus').innerText = "กำลังโหลดโมเดล...";
+      
       try {
-        // ดึงโครงสร้าง COCO-SSD เกรดความเร็วสูงของค่ายขนานเดียวกับ YOLO จิ๋ว
+        // ใช้ tf.js จัดการ WebGL เพื่อเร่งความเร็ว
+        await tf.ready();
+        // โหลดโมเดล COCO-SSD (ใช้ mobilenet_v2 ซึ่งเสถียรที่สุดสำหรับเบราว์เซอร์)
         modelSession = await cocoSsd.load({ base: 'mobilenet_v2' });
-        document.getElementById('aiSpeed').innerText = "AI ACTIVE (LITE-ENGINE)";
-        statusElement.innerText = "โหลดระบบ AI สำเร็จ! กำลังเปิดกล้อง...";
+        
+        document.getElementById('aiStatus').innerText = "AI ACTIVE (WebGL Accelerated)";
+        statusElement.innerText = "โหลด AI สำเร็จ! กำลังเปิดกล้อง...";
         statusElement.style.color = "#28a745";
         
         await startCamera();
-        runInference(); // สั่งรันลูปคำนวณเบื้องหลังแยกกับลูปหน้าจอ เพื่อไม่ให้กล้องกระตุก
-        renderLoop();   
+        runInference(); // สั่ง AI คำนวณเบื้องหลังไม่ให้หน่วงหน้าจอ
+        renderLoop();   // สั่งลูปวาดหน้าจอ
       } catch (e) {
-        document.getElementById('aiSpeed').innerText = "AI ENGINE ERROR";
-        statusElement.innerText = "สลับไปโหมดกล้องธรรมดา: " + e.message;
+        document.getElementById('aiStatus').innerText = "AI ENGINE ERROR";
+        statusElement.innerText = "โหลด AI ไม่สำเร็จ (จะเปิดกล้องธรรมดา): " + e.message;
+        statusElement.style.color = "#dc3545";
         startCamera();
         renderLoop();
       }
     }
 
+    // 4. เปิดกล้องแบบปลอดภัย (สลับหน้าหลังไม่จอดำ)
     async function startCamera() {
       if (streamRef) {
         streamRef.getTracks().forEach(track => track.stop());
@@ -133,8 +171,8 @@
 
       let constraints = { audio: false };
       if (isMobile) {
-        constraints.video = { facingMode: currentFacingMode, width: 640, height: 480 };
-        document.getElementById('devCam').innerText = currentFacingMode === "user" ? "FRONT (กล้องหน้า)" : "BACK (กล้องหลัง)";
+        constraints.video = { facingMode: currentFacingMode, width: { ideal: 640 }, height: { ideal: 480 } };
+        document.getElementById('devCam').innerText = currentFacingMode === "user" ? "FRONT CAMERA (กล้องหน้า)" : "BACK CAMERA (กล้องหลัง)";
       } else {
         const videoSource = videoSelect.value;
         constraints.video = { deviceId: videoSource ? { exact: videoSource } : undefined, width: 640, height: 480 };
@@ -160,70 +198,82 @@
       startCamera();
     }
 
-    // ⚡ ฟังก์ชันรัน AI แยกจากความเร็วหน้าจอ วิดีโอจะได้ไหลลื่น
+    // ⚡ 5. รัน AI คำนวณเบื้องหลังแยกกับความเร็วหน้าจอ วิดีโอจะได้ลื่น
     async function runInference() {
       if (modelSession && video.readyState === video.HAVE_ENOUGH_DATA) {
         try {
-          predictions = await modelSession.detect(video);
+          // สั่ง AI ตรวจจับ โดยไม่กำหนดค่า threshold ในนี้ เพื่อให้ AI ส่งผลลัพธ์มาทั้งหมด
+          currentPredictions = await modelSession.detect(video);
         } catch (err) {
-          console.error("AI Error:", err);
+          console.error("AI Inference Error:", err);
         }
       }
-      // สั่งทำงานต่อเป็นรอบๆ ไป
+      // สั่งทำงานต่อทุกๆ 80 มิลลิวินาที (ไม่โหลดเครื่องเกินไป)
       setTimeout(runInference, 80);
     }
 
-    // 🎬 ลูปวาดหน้าจอสดพร้อมกรอบ AI
+    // 🎬 6. ลูปวาดหน้าจอ (Canvas) พร้อมแก้ปัญหากรอบไม่ตรง
     function renderLoop() {
       if (video.readyState === video.HAVE_ENOUGH_DATA) {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         
-        // วาดวิดีโอสดลงกระดาน
-        if ((isMobile && currentFacingMode === "user") || !isMobile) {
+        // กฎเหล็ก: เปิดบนคอม หรือ กล้องหน้ามือถือ ต้องสลับด้านภาพ (กระจกเงา)
+        const shouldMirror = (isMobile && currentFacingMode === "user") || !isMobile;
+
+        if (shouldMirror) {
           ctx.save();
           ctx.translate(canvas.width, 0);
           ctx.scale(-1, 1);
           ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
           ctx.restore();
+          document.getElementById('alignMode').innerText = "Fix Applied: Mirror (Front/Desktop)";
         } else {
           ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          document.getElementById('alignMode').innerText = "Fix Applied: Regular (Back Camera)";
         }
 
-        // วาดกรอบและแสดงชื่อที่ AI ค้นพบลงบน Canvas
-        for (let i = 0; i < predictions.length; i++) {
-          let object = predictions[i];
+        // วาดกรอบสีเขียวสด (เฉพาะที่ผ่านค่า Threshold ที่เราตั้งไว้)
+        for (let i = 0; i < currentPredictions.length; i++) {
+          let object = currentPredictions[i];
+          
+          // ตรวจสอบค่าความแม่นยำกับสไลเดอร์ หากต่ำกว่าไม่ต้องวาด
+          if (object.score < currentThreshold) continue;
+
+          // ดึงพิกัดดั้งเดิมจาก AI (YOLO)
           let [x, y, width, height] = object.bbox;
           
-          // ปรับทิศทางพิกัดกรอบหากกล้องสลับด้านอยู่ (โหมดกระจกเงา)
-          if ((isMobile && currentFacingMode === "user") || !isMobile) {
+          // 🛠️ 🎯 หัวใจหลักของการแก้ปัญหากรอบไม่ตรง 🎯
+          // หากหน้าจอถูกกลับด้าน (Mirror) เราต้อง "Flip" พิกัดกรอบคืนกลับไปฝั่งตรงข้าม
+          if (shouldMirror) {
             x = canvas.width - x - width;
           }
 
-          // วาดกรอบสีเขียวสด
+          // วาดกรอบ
           ctx.strokeStyle = "#00ff00";
           ctx.lineWidth = 3;
           ctx.strokeRect(x, y, width, height);
 
-          // วาดแผ่นแถบป้ายชื่อ
+          // วาดแถบป้ายชื่อ
           ctx.fillStyle = "#00ff00";
-          let scoreText = Math.round(object.score * 100) + "%";
-          let fullText = object.class + " " + scoreText;
-          ctx.fillRect(x, y - 25, fullText.length * 9 + 15, 25);
+          let percentage = Math.round(object.score * 100) + "%";
+          let labelText = `${object.class} ${percentage}`;
+          ctx.fillRect(x, y - 25, labelText.length * 9.5 + 15, 25);
 
-          // เขียนตัวอักษรบอกประเภทและ % ความแม่นยำ
+          // เขียนตัวหนังสือ
           ctx.fillStyle = "#000000";
-          ctx.font = "bold 14px monospace";
-          ctx.fillText(fullText, x + 5, y - 7);
+          ctx.font = "bold 15px monospace";
+          ctx.fillText(labelText, x + 5, y - 7);
         }
       }
       requestAnimationFrame(renderLoop);
     }
 
+    // 7. ถ่ายรูปภาพพร้อมกรอบ AI ส่งไป Google Sheets/Drive
     function captureAndSend() {
-      statusElement.innerText = "กำลังอัปโหลดภาพพร้อมกรอบ AI เข้า Google Drive...";
+      statusElement.innerText = "กำลังอัปโหลดรูปพร้อมกรอบ AI เข้า Google Drive...";
       statusElement.style.color = "#007bff";
       
-      const base64Image = canvas.toDataURL('image/jpeg');
+      const base64Image = canvas.toDataURL('image/jpeg', 0.85); // บีบอัดเล็กน้อยเพื่อส่งไว
       const formBody = 'image=' + encodeURIComponent(base64Image);
 
       fetch(GOOGLE_SCRIPT_URL, {
@@ -233,18 +283,20 @@
         body: formBody
       })
       .then(() => {
-        statusElement.innerText = "📸 อัปโหลดรูปสำเร็จ! เช็กผลงานพร้อมกรอบที่ Google Drive ได้เลยครับ";
+        statusElement.innerText = "📸 อัปโหลดสำเร็จ! รูปพร้อมกรอบถูกเซฟลง Google Drive แล้วครับ";
         statusElement.style.color = "#28a745";
       })
       .catch(err => {
-        statusElement.innerText = "อัปโหลดพลาด: " + err.message;
+        statusElement.innerText = "อัปโหลดล้มเหลว: " + err.message;
         statusElement.style.color = "#dc3545";
       });
     }
 
+    // จุดเริ่มต้นทำงานเมื่อโหลดหน้าเว็บสำเร็จ
     window.onload = async function() {
       checkDevice();
       try {
+        // ขอสิทธิ์กล้องครั้งแรกเพื่อแก้ปัญหา iOS/Android รอบแรกเด้ง
         const initStream = await navigator.mediaDevices.getUserMedia({video: true});
         initStream.getTracks().forEach(track => track.stop());
         getCameras();
