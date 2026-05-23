@@ -14,7 +14,6 @@
     video { display: none; } 
     canvas { width: 100% !important; height: auto !important; border-radius: 12px; box-shadow: 0 8px 30px rgba(0,0,0,0.7); background-color: #000; }
     
-    /* กล่องแสดงตัวเลขยอดรวมการนับรถ */
     .counter-dashboard { display: flex; justify-content: space-around; max-width: 470px; margin: 10px auto; background: #222; padding: 15px; border-radius: 12px; border: 1px solid #333; }
     .counter-item { text-align: center; }
     .counter-item h3 { margin: 0 0 5px 0; font-size: 14px; color: #aaa; }
@@ -76,7 +75,7 @@
   </div>
 
   <script>
-    const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyLZpaCK-v7pIoSlu-wDMF1wyYcZJ1D8Ae_iGe_zqDVUqmi89B0D5V9OYBpmmxj9aAehg/exec";
+    const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/ใส่ตรงนี้นะครับ googel /exec";
 
     let video = document.getElementById('video');
     let canvas = document.getElementById('canvas');
@@ -88,18 +87,15 @@
     
     let streamRef = null;
     let modelSession = null;
-    let currentFacingMode = "environment"; // นับรถแนะนำให้เริ่มรันที่กล้องหลัง เพื่อสะดวกในการส่อง
+    let currentFacingMode = "environment"; 
     let isMobile = false;
-    
-    // --- โครงสร้างระบบ Tracking & ID (แก้ปัญหานับซ้ำ) ---
+  
     let totalCarCount = 0;
     let nextObjectID = 1;
-    let trackedObjects = []; // เก็บประวัติวัตถุในจอ [{id, lastX, lastY, box, label, crossed}]
-    let countedIDs = new Set(); // บันทึก ID ที่ผ่านเส้นไปแล้ว เพื่อห้ามนับซ้ำ
-    
-    // ตำแหน่งเส้นตรวจจับสีแดง (ลากแนวนอนตรงกลางจอความสูง 480px -> เส้นอยู่ที่ 240px)
+    let trackedObjects = []; 
+    let countedIDs = new Set(); ำ
+       
     const COUNTING_LINE_Y = 240; 
-    // ประเภทวัตถุที่ระบบยอมรับให้นับ
     const allowedClasses = ['car', 'motorcycle', 'truck', 'bus'];
 
     function checkDevice() {
@@ -184,26 +180,23 @@
       currentFacingMode = (currentFacingMode === "user") ? "environment" : "user";
       startCamera();
     }
-
-    // ⚡ 5. ระบบคำนวณและแจกจ่าย ID วัตถุแบบเรียลไทม์ (Centroid Tracking)
+  
     async function runInference() {
       if (modelSession && video.readyState === video.HAVE_ENOUGH_DATA) {
         try {
           const rawPredictions = await modelSession.detect(video);
           
-          // กรองเอาเฉพาะวัตถุที่เป็นกลุ่มยานพาหนะ
           let currentVehicles = rawPredictions.filter(p => allowedClasses.includes(p.class) && p.score > 0.35);
           
           let newTrackedObjects = [];
 
-          // จับคู่พิกัดรถปัจจุบันกับรถในเฟรมก่อนหน้าเพื่อรักษา ID เดิม (Tracking)
           for (let p of currentVehicles) {
             let [x, y, w, h] = p.bbox;
             let centerX = x + w / 2;
             let centerY = y + h / 2;
             
             let matchedID = null;
-            let minDistance = 60; // ระยะห่างสูงสุดที่ยอมรับได้ว่าเป็นรถคันเดิม (พิกัดพิกเซล)
+            let minDistance = 60; 
 
             for (let oldObj of trackedObjects) {
               let dist = Math.hypot(centerX - oldObj.lastX, centerY - oldObj.lastY);
@@ -213,31 +206,21 @@
               }
             }
 
-            // ถ้าเป็นรถคันใหม่ที่เพิ่งวิ่งเข้ามา ให้แจก ID ใหม่ป้ายแดง
             if (matchedID === null) {
               matchedID = nextObjectID++;
             }
 
-            // ตรวจสอบระบบสลับฝั่ง (Mirror Mode) สำหรับกล้องหน้าหรือคอม
             const isMirror = (isMobile && currentFacingMode === "user") || !isMobile;
             let drawX = x;
             if (isMirror) { drawX = canvas.width - x - w; }
-
-            // เช็กการวิ่งข้ามเส้น COUNTING_LINE_Y (จากบนลงล่าง หรือล่างขึ้นบน)
-            let hasCrossed = countedIDs.has(matchedID);
-            
-            // หาประวัติคันเก่าเพื่อดูแนวโน้มทิศทางเคลื่อนที่
+            let hasCrossed = countedIDs.has(matchedID);        
             let oldRecord = trackedObjects.find(o => o.id === matchedID);
             if (oldRecord && !hasCrossed) {
-              // ถ้าเฟรมก่อนอยู่ฝั่งหนึ่ง เฟรมนี้อยู่อีกฝั่งหนึ่งของเส้น = ข้ามเส้นแล้วชัวร์
               if ((oldRecord.lastY <= COUNTING_LINE_Y && centerY > COUNTING_LINE_Y) ||
                   (oldRecord.lastY >= COUNTING_LINE_Y && centerY < COUNTING_LINE_Y)) {
-                
-                totalCarCount++; // นับเพิ่มขึ้น 1 คัน
-                countedIDs.add(matchedID); // บันทึก ID ลงกล่องห้ามนับซ้ำ
-                hasCrossed = true;
-                
-                // แจ้งเตือนกระตุ้นหน้าจอ
+                totalCarCount++; 
+                countedIDs.add(matchedID); 
+                hasCrossed = true;            
                 statusElement.innerText = `🚨 ตรวจพบ ${p.class} ID: ${matchedID} วิ่งผ่านเส้น!`;
                 statusElement.style.color = "#ffcc00";
               }
@@ -256,29 +239,22 @@
             });
           }
 
-          // อัปเดตรายชื่อวัตถุในจอภาพเฟรมปัจจุบัน
-          trackedObjects = newTrackedObjects;
-          
-          // แสดงผลหน้าแดชบอร์ดข้อมูล
+          trackedObjects = newTrackedObjects;         
           document.getElementById('carCountDisplay').innerText = totalCarCount;
           document.getElementById('trackedObjectsDisplay').innerText = trackedObjects.length;
           document.getElementById('countedIdsList').innerText = JSON.stringify(Array.from(countedIDs));
-
         } catch (err) {
           console.error(err);
         }
       }
-      setTimeout(runInference, 50); // เร่งความเร็วการ Tracking ให้ถี่ขึ้นเพื่อป้องกันรถหลุด ID
+      setTimeout(runInference, 50); 
     }
 
-    // 🎬 6. หลูปการวาดกราฟิกบนหน้าจอ (วาดภาพสด + เส้นสีแดง + กรอบรถพร้อมเลข ID)
     function renderLoop() {
       if (video.readyState === video.HAVE_ENOUGH_DATA) {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         
         const isMirror = (isMobile && currentFacingMode === "user") || !isMobile;
-
-        // วาดภาพวิดีโอหลัก
         if (isMirror) {
           ctx.save();
           ctx.translate(canvas.width, 0);
@@ -289,40 +265,28 @@
           ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
         }
 
-        // 🟥 วาดเส้นแบ่งเขตตรวจจับรถข้ามเส้น (COUNTING LINE)
         ctx.strokeStyle = countedIDs.size > 0 ? "#ff3333" : "#ff0000";
         ctx.lineWidth = 4;
         ctx.beginPath();
         ctx.moveTo(0, COUNTING_LINE_Y);
         ctx.lineTo(canvas.width, COUNTING_LINE_Y);
-        ctx.stroke();
-        
-        // เขียนข้อความบอกตำแหน่งเส้นกำกับไว้
+        ctx.stroke();       
         ctx.fillStyle = "#ff0000";
         ctx.font = "bold 13px sans-serif";
         ctx.fillText("🛑 เส้นตรวจจับการนับรถ (COUNTING LINE)", 15, COUNTING_LINE_Y - 8);
 
-        // วาดกรอบสี่เหลี่ยมรอบรถที่กำลังตรวจจับพร้อมแสดงหมายเลข ID ติดตามตัว
         for (let obj of trackedObjects) {
-          let isPassed = countedIDs.has(obj.id);
-          
-          // หากรถคันนี้นับสิทธิ์ไปแล้ว ให้แสดงกรอบสีส้ม (นับแล้ว) ถ้ายังไม่ผ่านให้ขึ้นสีเขียวสด
+          let isPassed = countedIDs.has(obj.id);          
           ctx.strokeStyle = isPassed ? "#ff9900" : "#00ff00";
           ctx.lineWidth = 3;
           ctx.strokeRect(obj.drawX, obj.drawY, obj.w, obj.h);
-
-          // พ่นแถบป้ายข้อความหัวกรอบรถ
           ctx.fillStyle = isPassed ? "#ff9900" : "#00ff00";
           let speedText = Math.round(obj.score * 100) + "%";
           let labelText = `ID: ${obj.id} [${obj.label}] ${speedText}`;
           ctx.fillRect(obj.drawX, obj.drawY - 25, labelText.length * 9 + 10, 25);
-
-          // เขียนตัวหนังสือบอก ID และคลาสของรถลงบนป้าย
           ctx.fillStyle = "#000000";
           ctx.font = "bold 14px monospace";
-          ctx.fillText(labelText, obj.drawX + 5, obj.drawY - 7);
-          
-          // วาดจุดกึ่งกลางรถ (Centroid) เพื่อให้เห็นพิกัดตรวจจับชัดเจน
+          ctx.fillText(labelText, obj.drawX + 5, obj.drawY - 7);          
           ctx.fillStyle = "#ffffff";
           let dotX = obj.drawX + obj.w/2;
           ctx.beginPath();
